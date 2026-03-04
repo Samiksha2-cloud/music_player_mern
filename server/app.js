@@ -1,13 +1,52 @@
-const express = require("express");//imports express framework in the project so we can use it//
-const app = express();//initializes the framework and creates our"server application"object. this object is the "brain" that will listen to our music requests.
+// server/app.js
 
-const cors = require("cors");//this is a package 
-// Define a route for GET requests to the root URL
-app.get("/",(req , res) =>{
-    return res.json("hey there....")
-})//after this we hit the command call developer(npm dev)in terminal.it will trigger the command called nodemon app.js .itss like a keyword 
-// Start the server
-app.listen(4000,() => console.log("listening to port 4000"));
-//If your professor asks why you didn't use Firebase Storage, you have a very professional "Industry-style" answer ready:
+const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
+require("dotenv").config(); // Load .env variables
 
-//"I chose to store the media URLs in Firestore and host the assets externally to optimize the database footprint and avoid unnecessary cloud storage costs, while still maintaining a seamless streaming experience in the React frontend."
+const app = express();
+
+// Middleware
+app.use(cors({ origin: true }));          // Allow frontend (localhost:3000) to connect
+app.use(express.json());                  // Parse JSON request bodies
+
+// Simple root route for testing (open localhost:4000 in browser)
+app.get("/", (req, res) => {
+  res.json({
+    message: "Riff Music App Backend is running!",
+    status: "ok",
+    port: process.env.PORT || 4000,
+  });
+});
+
+// Test endpoint for frontend-backend connection
+app.get("/api/test", (req, res) => {
+  res.json({
+    message: "Hello from backend! Frontend-backend connection works.",
+    time: new Date().toISOString(),
+  });
+});
+
+// Import routes
+const authRoutes = require("./routes/auth");
+
+// Use routes
+app.use("/api/users", authRoutes);
+
+// Connect to MongoDB Atlas
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB Atlas connected successfully!"))
+  .catch((err) => {
+    console.error("MongoDB connection error:", err.message);
+    process.exit(1); // Stop server if DB fails
+  });
+
+// Start server
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
+module.exports = app;

@@ -1,78 +1,56 @@
-import React from 'react';
-import { Route, Routes, Navigate } from 'react-router-dom';
-import { Home, Login } from './components';
+import { Routes, Route, Navigate } from 'react-router-dom'
+import Login from './components/Login'
+import AuthCallback from './components/AuthCallback'
 import { AuthProvider, useAuth } from './context/AuthContext';
-import AuthCallback from './components/AuthCallback';   
+import Home from './components/Home';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  
-  console.log('ProtectedRoute - loading:', loading, 'user:', user?.email ?? user);
-  
-  // Wait until loading is complete
-  if (loading || user === undefined) {
+
+  console.log('ProtectedRoute check:', { 
+    loading, 
+    user: user?.email || 'no user' 
+  });
+
+  if (loading) {
     return (
-      <div className='w-screen h-screen flex items-center justify-center'>
-        <p>Loading...</p>
+      <div className="w-screen h-screen flex items-center justify-center">
+        <p>Loading protected content...</p>
       </div>
     );
   }
-  
-  return user ? children : <Navigate to="/login" replace />;
-};
 
-const PublicRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-  
-  console.log('PublicRoute - loading:', loading, 'user:', user?.email ?? user);
-  
-  // Wait until loading is complete
-  if (loading || user === undefined) {
-    return (
-      <div className='w-screen h-screen flex items-center justify-center'>
-        <p>Loading...</p>
-      </div>
-    );
+  // If no user after loading finished → redirect to login
+  if (!user) {
+    return <Navigate to="/login" replace />;
   }
-  
-  return user ? <Navigate to="/" replace /> : children;
+
+  return children;
 };
 
-const AppContent = () => {
+function App() {
   return (
-    <div className='w-screen h-screen bg-primary flex justify-center items-center'>
-      <Routes>
-        <Route 
-          path='/login' 
-          element={
-            <PublicRoute>
-              <Login />
-            </PublicRoute>
-          } 
-        />
-        <Route
-          path="/Auth/callback"
-          element={<AuthCallback />}
-         />
-        <Route 
-          path='*' 
-          element={
-            <ProtectedRoute>
-              <Home />
-            </ProtectedRoute>
-          } 
-        />
-      </Routes>
-    </div>
-  );
-};
+    <AuthProvider> {}
+    <Routes>
+      {/* Public route - anyone can see login */}
+      <Route path="/login" element={<Login />} />
 
-const App = () => {
-  return (
-    <AuthProvider>
-      <AppContent />
+      {/* Callback route - public, no protection */}
+      <Route path="/auth/callback" element={<AuthCallback />} />
+
+      {/* Protected home route */}
+      <Route
+        path="*"
+        element={
+          <ProtectedRoute>
+            <Home/>
+            {/* Later replace this with your real <Home /> component */}
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
     </AuthProvider>
   );
-};
+}
 
 export default App;

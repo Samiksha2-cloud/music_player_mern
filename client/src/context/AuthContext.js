@@ -8,23 +8,36 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.email ?? 'No session');
-      setUser(session?.user ?? null);
-      setLoading(false);
+  setLoading(true);
+
+  const refreshAndSetSession = async () => {
+    // Try to refresh any existing session first
+    const { error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError) console.log('Refresh failed:', refreshError.message);
+
+    // Get current session (fresh)
+    const { data: { session } } = await supabase.auth.getSession();
+
+    console.log('AuthContext mount - session after refresh:', {
+      user: session?.user?.email || 'none',
+      accessToken: session?.access_token ? 'present' : 'missing'
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('Auth change:', event, session?.user?.email ?? 'No user');
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
+    setUser(session?.user ?? null);
+    setLoading(false);
+  };
 
-    return () => subscription.unsubscribe();
-  }, []);
+  refreshAndSetSession();
 
+  // Listen for changes (backup)
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    console.log('Auth change:', event, session?.user?.email || 'no user');
+    setUser(session?.user ?? null);
+    setLoading(false);
+  });
+
+  return () => subscription.unsubscribe();
+}, []);
   const value = {
     user,
     loading,
