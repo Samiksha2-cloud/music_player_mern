@@ -1,87 +1,77 @@
-const router = require('express').Router();
+const router = require("express").Router();
+const { supabase } = require("../config/supabase.config");  // your Supabase client
 
-// Login/Register user endpoint
-router.post('/login', async (req, res) => {
+// Protected GET route to validate user (GET /login or /validate)
+router.get("/validate", async (req, res) => {
   try {
-    const { user_id, name, email, imageURL, email_verified, role, auth_time } = req.body;
-
-    // Log the incoming user data
-    console.log('User login request received:', {
-      user_id,
-      name,
-      email,
-      email_verified,
-      role
-    });
-
-    // Here you can add your custom validation logic
-    // For example:
-    // - Check if user exists in your database
-    // - Create new user if doesn't exist
-    // - Update user information if exists
-    // - Validate email domain (e.g., only allow certain domains)
-    // - Check user against blacklist
-    // - etc.
-
-    // Example validation: Check if email is verified
-    if (!email_verified) {
-      return res.status(400).json({
+    // Check if Authorization header exists
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
         success: false,
-        message: 'Email not verified. Please verify your email.'
+        message: "Missing or invalid Authorization header. Use Bearer token."
       });
     }
 
-    // TODO: Add your database logic here
-    // Example with MongoDB/Mongoose:
-    // const user = await User.findOneAndUpdate(
-    //   { user_id },
-    //   { name, email, imageURL, email_verified, role, auth_time },
-    //   { upsert: true, new: true }
-    // );
+    // Extract token: Bearer <token> → <token>
+    const token = authHeader.split(" ")[1];
 
-    // For now, just return success
+    // Verify token with Supabase
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired token",
+        error: error?.message || "User not found"
+      });
+    }
+
+    // Load User model
+    const User = require('../models/User');
+
+    // Find or create/update user in MongoDB
+    let dbUser = await User.findOne({ userId: user.id });
+
+    if (!dbUser) {
+      dbUser = new User({
+        userId: user.id,
+        email: user.email,
+        name: user.user_metadata?.full_name || user.email.split('@')[0],
+        avatarUrl: user.user_metadata?.avatar_url,
+        role: user.role || 'user'
+      });
+      await dbUser.save();
+      console.log('New user created in MongoDB:', dbUser.email);
+    } else {
+      dbUser.lastLogin = new Date();
+      await dbUser.save();
+      console.log('User logged in again:', dbUser.email);
+    }
+
+    // Return combined data (from Supabase + MongoDB)
     res.status(200).json({
       success: true,
-      message: 'User validated successfully',
+      message: "User validated and synced with DB",
       user: {
-        user_id,
-        name,
-        email,
-        imageURL,
-        role
+        id: user.id,
+        email: user.email,
+        name: dbUser.name,
+        avatarUrl: dbUser.avatarUrl,
+        role: dbUser.role,
+        lastLogin: dbUser.lastLogin || dbUser.createdAt  // fallback for new user
       }
     });
 
-  } catch (error) {
-    console.error('Login error:', error);
+  } catch (err) {
+    console.error("Validation error:", err);
     res.status(500).json({
       success: false,
-      message: 'Error validating user',
-      error: error.message
+      message: "Server error during validation",
+      error: err.message
     });
   }
 });
 
-// Optional: Logout endpoint
-router.post('/logout', async (req, res) => {
-  try {
-    const { user_id } = req.body;
     
-    console.log('User logout:', user_id);
-    
-    // Add any cleanup logic here (e.g., clear sessions, tokens, etc.)
-    
-    res.status(200).json({
-      success: true,
-      message: 'User logged out successfully'
-    });
-  } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error logging out user'
-    });
-  }
-});
-
 module.exports = router;

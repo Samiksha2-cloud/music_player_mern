@@ -2,8 +2,9 @@
 
 const express = require("express");
 const cors = require("cors");
-const mongoose = require("mongoose");
+const { default: mongoose } = require("mongoose");
 require("dotenv").config(); // Load .env variables
+console.log('Supabase key loaded:', process.env.SUPABASE_KEY ? 'YES (length ' + process.env.SUPABASE_KEY.length + ')' : 'MISSING');
 
 const app = express();
 

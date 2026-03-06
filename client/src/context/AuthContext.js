@@ -9,7 +9,17 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
   setLoading(true);
-
+ /*supabase.auth.getSession().then(({ data }) => {
+  const token = data.session?.access_token;
+  if (token) {
+    console.log('FRESH TOKEN (copy now):', token);
+    navigator.clipboard.writeText(token);
+    alert('Fresh token copied to clipboard!\nPaste in Postman NOW — it expires in ~1 hour');
+  } else {
+    alert('No active session — please log in first');
+  }
+});
+*/
   const refreshAndSetSession = async () => {
     // Try to refresh any existing session first
     const { error: refreshError } = await supabase.auth.refreshSession();

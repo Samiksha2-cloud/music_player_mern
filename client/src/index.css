@@ -1,3 +1,34 @@
+/* Prevent blurry text during transforms */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+/* Smooth out hover scales */
+button, .transform-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  will-change: transform, box-shadow;
+}
+html, body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Anti-tear for animated buttons */
+button, [class*="hover:scale"], [class*="whileHover"] {
+  backface-visibility: hidden;
+  transform: translateZ(0);              /* force GPU layer */
+  will-change: transform, box-shadow;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Optional: reduce blur during scale */
+button:hover {
+  filter: brightness(1.05);              /* instead of heavy shadow change */
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
