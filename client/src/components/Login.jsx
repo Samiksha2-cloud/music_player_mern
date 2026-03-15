@@ -1,8 +1,17 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase.config';
-import riffLogo from '../assets/riff-logo.png';  // your logo
+import loginVideo from '../assets/login vid.mp4';
 
 export default function Login() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) navigate('/', { replace: true });
+  }, [user, navigate]);
+
   const loginWithGoogle = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -13,64 +22,42 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-4">
-      {/* 3D Tilt Card Wrapper */}
-      <div
-        className="w-full max-w-md perspective-1000"
-        style={{ perspective: '1000px' }} // enables 3D space
+    <div className="min-h-screen flex items-center justify-center relative bg-black overflow-hidden">
+
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute top-1/2 left-1/2 min-w-full min-h-full w-auto h-auto -translate-x-1/2 -translate-y-1/2 object-cover"
       >
-        <div
-          className="relative bg-[#0a0a0a] rounded-2xl p-10 md:p-14 shadow-2xl border border-gray-800 transform transition-all duration-500hover:scale-102 hover:shadow-[0_35px_60px_-15px_rgba(59,130,246,0.4)] group prespective-1000"
-          style={{
-            transformStyle: 'preserve-3d',
-            transition: 'transform 0.4s ease-out, box-shadow 0.4s ease-out'
-          }}
+        <source src={loginVideo} type="video/mp4" />
+      </video>
+
+      <div className="absolute inset-0 bg-black/50" />
+
+      <div className="relative z-10 w-full max-w-xs mx-auto flex flex-col items-center gap-5 px-6">
+
+        <p className="text-gray-400 text-sm tracking-wide text-center">
+          Welcome to Riff! Please Login to continue and enjow the music
+        </p>
+
+        <button
+          onClick={loginWithGoogle}
+          className="flex items-center justify-between w-full py-4 px-6 rounded-full
+                     bg-black/50 border border-white/15 backdrop-blur-md
+                     hover:bg-black/70 hover:scale-105 active:scale-95
+                     text-white font-semibold text-base transition-all duration-200"
         >
-          {/* Subtle background glow for 3D feel */}
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-indigo-900/10 to-transparent rounded-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
-          {/* Logo with blue glow circle */}
-          <div className="relative flex justify-center mb-8 z-10">
-            <div className="relative">
-              {/* Glow ring behind logo */}
-              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-black-500/40 to-black blur-xl opacity-70 animate-pulse"></div>
-              {/* Logo itself */}
-              <img
-                src={riffLogo}
-                alt="Riff Logo"
-                className="relative w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-black shadow-xl shadow-cyan-500/40 z-10"
-              />
-            </div>
-          </div>
-
-          {/* Title */}
-          <h1 className="text-4xl md:text-5xl font-bold text-white text-center mb-4 z-10 relative">
-            Log in to Riff
-          </h1>
-
-          {/* Tagline */}
-          <p className="text-gray-400 text-center mb-10 text-lg z-10 relative">
-            Your personal music world awaits
-          </p>
-
-          {/* Google Button */}
-          <button
-           onClick={loginWithGoogle}
-           className="w-full flex items-center justify-center gap-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-6 px-10 rounded-full text-xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-blue-500/50 transform hover:scale-102"
->
-           <svg className="w-8 h-8 md:w-9 md:h-9" viewBox="0 0 24 24">
-            <path
-              fill="#ffffff"
-              d="M12.545,10.239v3.821h9.43c-0.383,2.541-1.437,4.704-3.323,6.608l-0.002-0.002l-0.001,0.001c-1.886,1.904-4.575,3.058-7.104,3.058c-5.797,0-10.5-4.703-10.5-10.5c0-5.797,4.703-10.5,10.5-10.5c3.078,0,5.922,1.125,8.051,2.972l-3.272,3.272c-1.482-1.482-3.595-2.4-5.779-2.4c-4.686,0-8.5,3.814-8.5,8.5c0,4.686,3.814,8.5,8.5,8.5c2.184,0,4.297-0.918,5.779-2.4l3.272,3.272c-2.129,1.847-4.973,2.972-8.051,2.972c-5.797,0-10.5-4.703-10.5-10.5C1.545,10.239,6.248,5.536,12.545,5.536z"
-            />
-           </svg>
-            Continue with Google
+          <span>Login with Google</span>
+          <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
         </button>
-          {/* Legal text */}
-          <p className="mt-12 text-center text-sm text-gray-500 z-10 relative">
-            By continuing, you agree to our Terms and Privacy Policy
-          </p>
-        </div>
+
       </div>
     </div>
   );

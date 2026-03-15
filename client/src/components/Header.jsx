@@ -1,114 +1,103 @@
-// src/components/Header.jsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import riffLogo from '../assets/riff-logo.png'; // your icon-only logo
+import riffLogo from '../assets/riff-logo.png';
 import { NavLink } from 'react-router-dom';
+import { isActiveStyles, isNotActiveStyles } from '../utils/style';
+import { FaCrown } from 'react-icons/fa';
 
 const Header = () => {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
 
-  const firstName = user?.user_metadata?.full_name?.split(' ')[0] || 'User';
+  const displayName = user?.name || user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'User';
+  const initial = (user?.name?.[0] || user?.email?.[0] || user?.user_metadata?.full_name?.[0] || 'U').toUpperCase();
+
+  const handleLogout = async () => {
+    await signOut();
+    setShowDropdown(false);
+  };
 
   return (
     <motion.header
       initial={{ y: -100 }}
       animate={{ y: 0 }}
-      className="fixed top-0 left-0 right-0 z-50 bg-black/70 backdrop-blur-lg border-b border-indigo-900/30"
+      className="fixed top-0 left-0 right-0 z-50 bg-black/40 backdrop-blur-lg border-b border-white/10"
     >
-      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-start gap-10 md:gap-16">
-        {/* Big logo - centered or left, no text */}
-        <div className="flex items-center gap-8 md:gap-12">
+      <div className="max-w-7xl mx-auto px-6 py-3 flex items-center gap-10 md:gap-16">
+
         <NavLink to="/" className="flex-shrink-0">
-        <img
+          <img
             src={riffLogo}
             alt="Riff"
-            className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 object-contain drop-shadow-x1 transtion-transform hover:scale-105"
+            className="w-14 h-14 md:w-16 md:h-16 object-cover rounded-full shadow-lg
+                       hover:scale-110 transition-transform duration-200 border-2 border-indigo-500/30"
           />
         </NavLink>
 
-        {/* Navigation Links - center, hidden on mobile */}
-    <nav className="hidden md:flex flex-1 justify-center items-center gap-4 text-lg font-medium">
-      <NavLink
-        to="/"
-        className={({ isActive }) =>
-          isActive
-            ? 'text-cyan-400 underline underline-offset-8 font-semibold'
-            : 'text-gray-300 hover:text-cyan-300 transition'
-        }
-      >
-        Home
-      </NavLink>
-      <NavLink
-        to="/musics"
-        className={({ isActive }) =>
-          isActive
-            ? 'text-cyan-400 underline underline-offset-8 font-semibold'
-            : 'text-gray-300 hover:text-cyan-300 transition'
-        }
-      >
-        Musics
-      </NavLink>
-      <NavLink
-        to="/premium"
-        className={({ isActive }) =>
-          isActive
-            ? 'text-cyan-400 underline underline-offset-8 font-semibold'
-            : 'text-gray-300 hover:text-cyan-300 transition'
-        }
-      >
-        Premium
-      </NavLink>
-      <NavLink
-        to="/contact"
-        className={({ isActive }) =>
-          isActive
-            ? 'text-cyan-400 underline underline-offset-8 font-semibold'
-            : 'text-gray-300 hover:text-cyan-300 transition'
-        }
-      >
-        Contact
-      </NavLink>
-    </nav>
-    </div>
-
-        {/* Right side: Greeting + small profile + future dropdown */}
-        <div className="flex items-center gap-4 relative ml-auto">
-          <div className="text-right hidden sm:block">
-            <p className="text-lg font-medium text-cyan-300">Hey, {firstName}!</p>
-            <p className="text-xs text-gray-400">{user?.email}</p>
-          </div>
-
-          <div className="relative">
-            <button
-              onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center gap-3 hover:opacity-80 tansition"
-            >
-              
-              <img
-                src={user?.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${firstName}&background=0D47A1&color=fff&size=128`}
-                alt="Profile"
-                referrerPolicy="no-referrer"
-                className="w-10 h-10 rounded-full border-2 border-cyan-500/60 shadow-md object-cover"
-              />
-            </button>
-
-            {showDropdown && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="absolute right-0 mt-3 w-44 bg-gray-900/95 border border-indigo-800/50 rounded-xl shadow-2xl backdrop-blur-sm overflow-hidden"
+        <ul className="hidden md:flex items-center gap-6 lg:gap-8 text-base lg:text-lg font-medium">
+          {[
+            { label: 'Home', to: '/' },
+            { label: 'Musics', to: '/musics' },
+            { label: 'Premium', to: '/premium' },
+            { label: 'Contact', to: '/contact' },
+          ].map(({ label, to }) => (
+            <li key={label}>
+              <NavLink
+                to={to}
+                className={({ isActive }) =>
+                  `${isActive ? isActiveStyles : isNotActiveStyles} hover:scale-105 transition-transform duration-150 inline-block`
+                }
               >
-                <button className="w-full px-4 py-3 text-left text-gray-300 hover:bg-indigo-950/50 transition text-sm">
-                  Profile (coming soon)
-                </button>
-                <button className="w-full px-4 py-3 text-left text-red-400 hover:bg-indigo-950/50 transition border-t border-indigo-800/30 text-sm">
-                  Logout
-                </button>
-              </motion.div>
-            )}
+                {label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+
+        <div className="flex-1" />
+
+        <div className="flex items-center gap-3 relative">
+          <div
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition"
+          >
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-white font-bold shadow-md hover:scale-110 transition-transform duration-200">
+              {initial}
+            </div>
+
+            <div className="hidden md:flex flex-col items-start">
+              <div className="flex items-center gap-2">
+                <p className="text-base font-semibold text-white">{displayName}</p>
+                <div className="flex items-center gap-1 text-yellow-500 text-sm">
+                  <FaCrown className="text-yellow-400" />
+                  Premium Member
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">{user?.email}</p>
+            </div>
           </div>
+
+          {showDropdown && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="absolute right-0 top-14 w-44 bg-gray-900/95 border border-indigo-800/50 rounded-2xl shadow-2xl backdrop-blur-sm overflow-hidden"
+            >
+              <button
+                onClick={() => setShowDropdown(false)}
+                className="w-full px-4 py-3 text-left text-gray-300 hover:bg-indigo-950/60 hover:text-white transition-all duration-150 text-sm flex items-center gap-2"
+              >
+                My Favs
+              </button>
+              <button
+                onClick={handleLogout}
+                className="w-full px-4 py-3 text-left text-red-400 hover:bg-indigo-950/60 hover:text-red-300 transition-all duration-150 border-t border-indigo-800/30 text-sm flex items-center gap-2"
+              >
+                Logout
+              </button>
+            </motion.div>
+          )}
         </div>
       </div>
     </motion.header>
