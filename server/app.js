@@ -31,9 +31,13 @@ app.get("/api/test", (req, res) => {
 
 // Import routes
 const authRoutes = require("./routes/auth");
+const songRoutes = require("./routes/songs");
+const playlistRoutes = require("./routes/playlists");
 
 // Use routes
 app.use("/api/users", authRoutes);
+app.use("/api/songs", songRoutes);
+app.use("/api/playlists", playlistRoutes);
 
 // Connect to MongoDB Atlas
 mongoose
