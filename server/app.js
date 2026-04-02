@@ -4,12 +4,17 @@ const express = require("express");
 const cors = require("cors");
 const { default: mongoose } = require("mongoose");
 require("dotenv").config(); // Load .env variables
-console.log('Supabase key loaded:', process.env.SUPABASE_KEY ? 'YES (length ' + process.env.SUPABASE_KEY.length + ')' : 'MISSING');
+console.log('Supabase key loaded:', process.env.REACT_APP_SUPABASE_KEY ? 'YES (length ' + process.env.REACT_APP_SUPABASE_KEY.length + ')' : 'MISSING');
 
 const app = express();
 
 // Middleware
-app.use(cors({ origin: true }));          // Allow frontend (localhost:3000) to connect
+app.use(cors({ origin: [
+    'http://localhost:3000',
+    'https://music-player-mern-theta.vercel.app/', // add after deploying frontend
+  ],
+  credentials: true,
+ }));          
 app.use(express.json());                  // Parse JSON request bodies
 
 // Simple root route for testing (open localhost:4000 in browser)

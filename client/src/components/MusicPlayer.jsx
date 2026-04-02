@@ -1,56 +1,83 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useStateValue } from '../context/Stateprovider';
 import { actionType } from '../context/reducer';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import PlaylistModal from './PlaylistModal';
+import orbVideo from '../assets/orb_design.mp4';
 
 const LEVELS = [
-  { min: 0,    max: 99,        color: '#60a5fa', glow: '#3b82f6', name: 'Newcomer',   emoji: '🌱' },
-  { min: 100,  max: 299,       color: '#a78bfa', glow: '#8b5cf6', name: 'Listener',   emoji: '🎧' },
-  { min: 300,  max: 599,       color: '#f472b6', glow: '#ec4899', name: 'Enthusiast', emoji: '🎵' },
-  { min: 600,  max: 999,       color: '#fb923c', glow: '#f97316', name: 'Addict',     emoji: '🔥' },
-  { min: 1000, max: Infinity,  color: '#fbbf24', glow: '#f59e0b', name: 'Legend',     emoji: '✨' },
+  { min: 0,    max: 99,       color: '#06b6d4', glow: '#0891b2', name: 'Newcomer'   },
+  { min: 100,  max: 299,      color: '#6366f1', glow: '#4f46e5', name: 'Listener'   },
+  { min: 300,  max: 599,      color: '#06b6d4', glow: '#0891b2', name: 'Enthusiast' },
+  { min: 600,  max: 999,      color: '#6366f1', glow: '#4f46e5', name: 'Addict'     },
+  { min: 1000, max: Infinity, color: '#67e8f9', glow: '#06b6d4', name: 'Legend'     },
 ];
 
 const getLevel = (pts) => LEVELS.find((l) => pts >= l.min && pts <= l.max) || LEVELS[0];
 
 export default function MusicPlayer() {
   const [{ currentSong, isPlaying, allSongs }, dispatch] = useStateValue();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const audioRef = useRef(null);
+
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [points, setPoints] = useState(() => parseInt(localStorage.getItem('riff_points') || '0'));
-  const [showPoints, setShowPoints] = useState(false);
+  const [minutesListened, setMinutesListened] = useState(() => parseFloat(localStorage.getItem('riff_minutes') || '0'));
   const [pointsAnim, setPointsAnim] = useState('');
   const [orbTilt, setOrbTilt] = useState(0);
   const [orbHovered, setOrbHovered] = useState(false);
-  const pointsTimerRef = useRef(null);
-  const lastSongRef = useRef(null);
+  const [showModal, setShowModal] = useState(false);
+  const [isFav, setIsFav] = useState(false);
 
+  const pointsTimerRef = useRef(null);
+  const minuteTimerRef = useRef(null);
+  const lastSongRef = useRef(null);
   const level = getLevel(points);
-  const levelIndex = LEVELS.indexOf(level);
-  const nextLevel = LEVELS[levelIndex + 1];
-  const levelProgress = nextLevel
-    ? Math.round(((points - level.min) / (nextLevel.min - level.min)) * 100)
-    : 100;
+
+  const isPremium = localStorage.getItem(`riff_premium_${user?.email}`) === 'true';
 
   useEffect(() => {
     localStorage.setItem('riff_points', points.toString());
   }, [points]);
 
   useEffect(() => {
-    if (currentSong && currentSong._id !== lastSongRef.current) {
-      lastSongRef.current = currentSong._id;
+    localStorage.setItem('riff_minutes', minutesListened.toString());
+  }, [minutesListened]);
+
+  // +10 points when new song starts + track recent
+  useEffect(() => {
+    if (!currentSong) return;
+    const id = currentSong._id || currentSong.id;
+    if (id !== lastSongRef.current) {
+      lastSongRef.current = id;
       addPoints(10, '+10');
     }
+    const recent = JSON.parse(localStorage.getItem('riff_recent') || '[]');
+    const updated = [id, ...recent.filter((r) => r !== id)].slice(0, 20);
+    localStorage.setItem('riff_recent', JSON.stringify(updated));
+    const favs = JSON.parse(localStorage.getItem('riff_favs') || '[]');
+    setIsFav(favs.includes(id));
   }, [currentSong]);
 
+  // +1 point per minute
   useEffect(() => {
     if (isPlaying) {
-      pointsTimerRef.current = setInterval(() => addPoints(1, '+1'), 30000);
+      pointsTimerRef.current = setInterval(() => addPoints(1, '+1'), 60000);
+      minuteTimerRef.current = setInterval(() => {
+        setMinutesListened((prev) => parseFloat((prev + 1 / 60).toFixed(4)));
+      }, 1000);
     } else {
       clearInterval(pointsTimerRef.current);
+      clearInterval(minuteTimerRef.current);
     }
-    return () => clearInterval(pointsTimerRef.current);
+    return () => {
+      clearInterval(pointsTimerRef.current);
+      clearInterval(minuteTimerRef.current);
+    };
   }, [isPlaying]);
 
   const addPoints = (amount, label) => {
@@ -61,14 +88,20 @@ export default function MusicPlayer() {
     });
   };
 
+  // Only play/pause — never change src unless song actually changes
   useEffect(() => {
     if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.play().catch(() => {});
-    } else {
-      audioRef.current.pause();
-    }
-  }, [isPlaying, currentSong]);
+    if (isPlaying) audioRef.current.play().catch(() => {});
+    else audioRef.current.pause();
+  }, [isPlaying]);
+
+  // When song changes — update src and play
+  useEffect(() => {
+    if (!audioRef.current || !currentSong) return;
+    audioRef.current.src = currentSong.audioURL;
+    audioRef.current.load();
+    if (isPlaying) audioRef.current.play().catch(() => {});
+  }, [currentSong?._id]);
 
   const handleTimeUpdate = () => {
     if (!audioRef.current) return;
@@ -76,7 +109,8 @@ export default function MusicPlayer() {
     setDuration(audioRef.current.duration || 0);
   };
 
-  const togglePlay = () => dispatch({ type: actionType.SET_IS_PLAYING, isPlaying: !isPlaying });
+  const togglePlay = () =>
+    dispatch({ type: actionType.SET_IS_PLAYING, isPlaying: !isPlaying });
 
   const playNext = () => {
     if (!allSongs?.length || !currentSong) return;
@@ -113,15 +147,25 @@ export default function MusicPlayer() {
     return `${m}:${s}`;
   };
 
-  const handleOrbMouseMove = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    setOrbTilt(e.clientX - centerX > 0 ? 25 : -25);
+  // Heart — directly adds/removes from localStorage favs
+  const toggleFav = () => {
+    if (!currentSong) return;
+    const id = currentSong._id || currentSong.id;
+    const favs = JSON.parse(localStorage.getItem('riff_favs') || '[]');
+    const updated = favs.includes(id)
+      ? favs.filter((f) => f !== id)
+      : [id, ...favs];
+    localStorage.setItem('riff_favs', JSON.stringify(updated));
+    setIsFav(!isFav);
   };
 
-  const handleOrbMouseLeave = () => {
-    setOrbTilt(0);
-    setOrbHovered(false);
+  const handleDownload = () => {
+    if (!isPremium) { navigate('/premium'); return; }
+    const a = document.createElement('a');
+    a.href = currentSong.audioURL;
+    a.download = `${currentSong.title} - ${currentSong.artist}.mp3`;
+    a.target = '_blank';
+    a.click();
   };
 
   if (!currentSong) return null;
@@ -130,12 +174,12 @@ export default function MusicPlayer() {
     <>
       <style>{`
         @keyframes orbPulse {
-          0%, 100% { box-shadow: 0 0 18px 6px ${level.glow}99; transform: scale(1) rotate(${orbTilt}deg); }
-          50%       { box-shadow: 0 0 32px 14px ${level.glow}cc; transform: scale(1.13) rotate(${orbTilt}deg); }
+          0%, 100% { box-shadow: 0 0 18px 6px ${level.glow}99; }
+          50%       { box-shadow: 0 0 32px 14px ${level.glow}cc; }
         }
         @keyframes orbIdle {
-          0%, 100% { box-shadow: 0 0 10px 3px ${level.glow}55; }
-          50%       { box-shadow: 0 0 18px 7px ${level.glow}88; }
+          0%, 100% { box-shadow: 0 0 8px 2px ${level.glow}33; }
+          50%       { box-shadow: 0 0 14px 5px ${level.glow}55; }
         }
         @keyframes pointsPop {
           0%   { opacity: 0; transform: translateX(-50%) translateY(0px) scale(0.7); }
@@ -144,186 +188,152 @@ export default function MusicPlayer() {
         }
       `}</style>
 
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-lg border-t border-white/10 px-4 py-3">
-        <audio
-          ref={audioRef}
-          src={currentSong.audioURL}
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleTimeUpdate}
-          onEnded={playNext}
-        />
+      {showModal && currentSong && (
+        <PlaylistModal song={currentSong} onClose={() => setShowModal(false)} />
+      )}
 
-        <div className="max-w-7xl mx-auto flex items-center gap-4">
+      {/* Single persistent audio element */}
+      <audio
+        ref={audioRef}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleTimeUpdate}
+        onEnded={playNext}
+      />
 
-          {/* Orb + Song info */}
-          <div className="flex items-center gap-3 w-56 flex-shrink-0">
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.95)',
+        backdropFilter: 'blur(20px)',
+        borderTop: '1px solid rgba(255,255,255,0.08)',
+        padding: '10px 16px',
+      }}>
+        <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '16px' }}>
+
+          {/* Left — Orb + song info + action buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '260px', flexShrink: 0 }}>
 
             {/* Orb */}
-            <div className="relative flex-shrink-0">
-
-              {/* Floating points animation */}
+            <div style={{ position: 'relative', flexShrink: 0 }}>
               {pointsAnim && (
                 <div style={{
-                  position: 'absolute',
-                  top: '-10px',
-                  left: '50%',
-                  color: level.color,
-                  fontWeight: 'bold',
-                  fontSize: '13px',
+                  position: 'absolute', top: '-10px', left: '50%',
+                  color: level.color, fontWeight: 'bold', fontSize: '13px',
                   pointerEvents: 'none',
                   animation: 'pointsPop 1.2s ease forwards',
-                  zIndex: 100,
-                  whiteSpace: 'nowrap',
+                  zIndex: 100, whiteSpace: 'nowrap',
                 }}>
                   {pointsAnim}
                 </div>
               )}
-
-              {/* The orb */}
               <div
-                onClick={() => setShowPoints(!showPoints)}
-                onMouseMove={handleOrbMouseMove}
+                onClick={() => navigate('/orb')}
                 onMouseEnter={() => setOrbHovered(true)}
-                onMouseLeave={handleOrbMouseLeave}
+                onMouseLeave={() => { setOrbTilt(0); setOrbHovered(false); }}
+                onMouseMove={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setOrbTilt(e.clientX - (rect.left + rect.width / 2) > 0 ? 20 : -20);
+                }}
                 style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '50%',
-                  background: `radial-gradient(circle at 35% 35%, white 0%, ${level.color} 40%, ${level.glow} 100%)`,
-                  cursor: 'pointer',
-                  transition: 'transform 0.25s cubic-bezier(.34,1.56,.64,1)',
-                  transform: `rotate(${orbTilt}deg) scale(${orbHovered ? 1.15 : 1})`,
+                  width: '44px', height: '44px', borderRadius: '50%', overflow: 'hidden',
+                  cursor: 'pointer', transition: 'transform 0.2s ease',
+                  transform: `rotate(${orbTilt}deg) scale(${orbHovered ? 1.12 : 1})`,
                   animation: isPlaying ? 'orbPulse 1.4s ease-in-out infinite' : 'orbIdle 3s ease-in-out infinite',
                 }}
-              />
-
-              {/* Points tooltip */}
-              {showPoints && (
-                <div style={{
-                  position: 'absolute',
-                  bottom: '54px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  background: 'rgba(0,0,0,0.95)',
-                  border: `1px solid ${level.color}55`,
-                  borderRadius: '14px',
-                  padding: '12px 16px',
-                  minWidth: '170px',
-                  zIndex: 200,
-                  boxShadow: `0 0 20px ${level.glow}44`,
-                }}>
-                  <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '22px' }}>{level.emoji}</span>
-                    <p style={{ color: level.color, fontWeight: 'bold', fontSize: '14px', margin: '2px 0' }}>
-                      {level.name}
-                    </p>
-                    <p style={{ color: 'white', fontSize: '20px', fontWeight: 'bold' }}>
-                      {points} pts
-                    </p>
-                  </div>
-
-                  {nextLevel && (
-                    <>
-                      <div style={{ height: '5px', borderRadius: '99px', background: '#ffffff22', overflow: 'hidden', marginBottom: '4px' }}>
-                        <div style={{
-                          height: '100%',
-                          borderRadius: '99px',
-                          width: `${levelProgress}%`,
-                          background: `linear-gradient(90deg, ${level.color}, ${nextLevel.color})`,
-                          transition: 'width 0.5s ease',
-                        }} />
-                      </div>
-                      <p style={{ color: '#aaa', fontSize: '10px', textAlign: 'center' }}>
-                        {nextLevel.min - points} pts to {nextLevel.name} {nextLevel.emoji}
-                      </p>
-                    </>
-                  )}
-
-                  {!nextLevel && (
-                    <p style={{ color: level.color, fontSize: '11px', textAlign: 'center' }}>
-                      Max level reached! {level.emoji}
-                    </p>
-                  )}
-
-                  <div style={{ marginTop: '8px', borderTop: '1px solid #ffffff11', paddingTop: '6px' }}>
-                    <p style={{ color: '#666', fontSize: '10px', textAlign: 'center' }}>
-                      +10 per song • +1 per 30s
-                    </p>
-                  </div>
-                </div>
-              )}
+              >
+                <video src={orbVideo} autoPlay loop muted playsInline
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
             </div>
 
-            {/* Song title + artist */}
-            <div className="overflow-hidden">
-              <p className="text-white text-sm font-semibold truncate">{currentSong.title}</p>
-              <p className="text-xs truncate" style={{ color: level.color }}>{currentSong.artist}</p>
+            {/* Song info */}
+            <div style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
+              <p style={{ color: 'white', fontSize: '13px', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
+                {currentSong.title}
+              </p>
+              <p style={{ color: level.color, fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
+                {currentSong.artist}
+              </p>
             </div>
+
+            {/* Heart — directly toggles fav */}
+            <button onClick={toggleFav} title="Add to Favourites"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: isFav ? '#06b6d4' : '#444', fontSize: '18px', padding: '4px', flexShrink: 0, transition: 'all 0.15s ease' }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              {isFav ? '♥' : '♡'}
+            </button>
+
+            {/* Add to playlist */}
+            <button onClick={() => setShowModal(true)} title="Add to Playlist"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#444', padding: '4px', flexShrink: 0, transition: 'all 0.15s ease' }}
+              onMouseEnter={(e) => e.currentTarget.style.color = '#06b6d4'}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#444'}
+            >
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+            </button>
+
+            {/* Download */}
+            <button onClick={handleDownload} title={isPremium ? 'Download' : 'Download (Premium)'}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: isPremium ? '#06b6d4' : '#444', padding: '4px', flexShrink: 0, transition: 'all 0.15s ease' }}
+              onMouseEnter={(e) => e.currentTarget.style.color = '#06b6d4'}
+              onMouseLeave={(e) => e.currentTarget.style.color = isPremium ? '#06b6d4' : '#444'}
+            >
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M12 3v13M5 16l7 7 7-7M3 21h18"/>
+              </svg>
+            </button>
           </div>
 
-          {/* Center controls + progress */}
-          <div className="flex-1 flex flex-col items-center gap-2">
-            <div className="flex items-center gap-6">
-
-              {/* Prev */}
-              <button onClick={playPrev} className="text-gray-400 hover:text-white transition hover:scale-110">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
-                </svg>
+          {/* Center — controls + progress */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+              <button onClick={playPrev}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', transition: 'color 0.15s' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#666'}
+              >
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
               </button>
 
-              {/* Play/Pause */}
-              <button
-                onClick={togglePlay}
-                className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:scale-110 transition"
+              <button onClick={togglePlay}
+                style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.15s ease' }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
               >
                 {isPlaying
-                  ? <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                  : <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  ? <svg width="18" height="18" fill="black" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                  : <svg width="18" height="18" fill="black" viewBox="0 0 24 24" style={{ marginLeft: '2px' }}><path d="M8 5v14l11-7z"/></svg>
                 }
               </button>
 
-              {/* Next */}
-              <button onClick={playNext} className="text-gray-400 hover:text-white transition hover:scale-110">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M6 18l8.5-6L6 6v12zm2.5-6l5.5 3.93V8.07L8.5 12zM16 6h2v12h-2z"/>
-                </svg>
+              <button onClick={playNext}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', transition: 'color 0.15s' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#666'}
+              >
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zm2.5-6l5.5 3.93V8.07L8.5 12zM16 6h2v12h-2z"/></svg>
               </button>
             </div>
 
-            {/* Progress bar */}
-            <div className="flex items-center gap-2 w-full max-w-lg">
-              <span className="text-gray-400 text-xs w-8 text-right">{formatTime(progress)}</span>
-              <input
-                type="range"
-                min={0}
-                max={duration || 0}
-                value={progress}
-                onChange={handleSeek}
-                style={{ accentColor: level.color }}
-                className="flex-1 h-1 cursor-pointer"
-              />
-              <span className="text-gray-400 text-xs w-8">{formatTime(duration)}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', maxWidth: '480px' }}>
+              <span style={{ color: '#666', fontSize: '11px', width: '32px', textAlign: 'right' }}>{formatTime(progress)}</span>
+              <input type="range" min={0} max={duration || 0} value={progress} onChange={handleSeek}
+                style={{ flex: 1, height: '4px', accentColor: level.color, cursor: 'pointer' }} />
+              <span style={{ color: '#666', fontSize: '11px', width: '32px' }}>{formatTime(duration)}</span>
             </div>
           </div>
 
-          {/* Volume */}
-          <div className="flex items-center gap-2 w-32 flex-shrink-0">
-            <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+          {/* Right — Volume */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '120px', flexShrink: 0 }}>
+            <svg width="16" height="16" fill="#666" viewBox="0 0 24 24">
               <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
             </svg>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={volume}
-              onChange={handleVolume}
-              style={{ accentColor: level.color }}
-              className="flex-1 h-1 cursor-pointer"
-            />
+            <input type="range" min={0} max={1} step={0.01} value={volume} onChange={handleVolume}
+              style={{ flex: 1, height: '4px', accentColor: level.color, cursor: 'pointer' }} />
           </div>
-
         </div>
       </div>
     </>

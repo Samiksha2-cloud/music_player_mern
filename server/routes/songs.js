@@ -4,11 +4,36 @@ const { supabase } = require('../config/supabase.config');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
-// GET all songs
+// GET all songs (with optional category/mood/language filters)
 router.get('/', async (req, res) => {
   try {
-    const songs = await Song.find().lean();
+    const { category, mood, language } = req.query;
+    let query = {};
+
+    if (category === 'mood' && mood) {
+      query = { categories: 'mood', mood };
+    } else if (category === 'language' && language) {
+      query = { categories: 'language', language };
+    } else if (category) {
+      query = { categories: category };
+    }
+
+    const songs = await Song.find(query).lean();
     res.json(songs);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET songs grouped by mood (for mood playlists)
+router.get('/moods', async (req, res) => {
+  try {
+    const moods = ['Happy', 'Sad', 'Chill', 'Party', 'Romantic', 'Focus', 'Workout'];
+    const result = {};
+    for (const mood of moods) {
+      result[mood] = await Song.find({ categories: 'mood', mood }).lean();
+    }
+    res.json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -20,7 +45,7 @@ router.post('/upload', upload.fields([
   { name: 'image', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    const { title, artist, album } = req.body;
+    const { title, artist, album, categories, mood, language } = req.body;
     const audioFile = req.files['audio']?.[0];
     const imageFile = req.files['image']?.[0];
 
@@ -30,39 +55,41 @@ router.post('/upload', upload.fields([
     const audioFileName = `audio/${Date.now()}_${audioFile.originalname}`;
     const { error: audioError } = await supabase.storage
       .from('songs')
-      .upload(audioFileName, audioFile.buffer, {
-        contentType: audioFile.mimetype,
-      });
+      .upload(audioFileName, audioFile.buffer, { contentType: audioFile.mimetype });
     if (audioError) throw audioError;
 
-    const { data: audioData } = supabase.storage
-      .from('songs')
-      .getPublicUrl(audioFileName);
+    const { data: audioData } = supabase.storage.from('songs').getPublicUrl(audioFileName);
 
-    // Upload image to Supabase Storage (if provided)
+    // Upload image if provided
     let imageURL = '';
     if (imageFile) {
       const imageFileName = `images/${Date.now()}_${imageFile.originalname}`;
       const { error: imageError } = await supabase.storage
         .from('songs')
-        .upload(imageFileName, imageFile.buffer, {
-          contentType: imageFile.mimetype,
-        });
+        .upload(imageFileName, imageFile.buffer, { contentType: imageFile.mimetype });
       if (imageError) throw imageError;
 
-      const { data: imageData } = supabase.storage
-        .from('songs')
-        .getPublicUrl(imageFileName);
+      const { data: imageData } = supabase.storage.from('songs').getPublicUrl(imageFileName);
       imageURL = imageData.publicUrl;
     }
 
-    // Save song metadata to MongoDB
+    // Parse categories (sent as JSON string or array)
+    let parsedCategories = [];
+    if (categories) {
+      parsedCategories = typeof categories === 'string'
+        ? JSON.parse(categories)
+        : categories;
+    }
+
     const song = new Song({
       title,
       artist,
       album,
       audioURL: audioData.publicUrl,
       imageURL,
+      categories: parsedCategories,
+      mood: mood || '',
+      language: language || '',
     });
     await song.save();
 
