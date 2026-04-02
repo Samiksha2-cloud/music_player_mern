@@ -9,11 +9,10 @@ console.log('Supabase key loaded:', process.env.REACT_APP_SUPABASE_KEY ? 'YES (l
 const app = express();
 
 // Middleware
-app.use(cors({ origin: [
-    'http://localhost:3000',
-    'https://music-player-mern-theta.vercel.app/', // add after deploying frontend
-  ],
-  credentials: true,
+app.use(cors({ 
+  origin: 'https://music-player-mern-theta.vercel.app', // add after deploying frontend
+  method: 'GET,POST,PUT,DELETE',
+  credentials: true
  }));          
 app.use(express.json());                  // Parse JSON request bodies
 
