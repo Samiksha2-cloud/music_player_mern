@@ -5,16 +5,32 @@ require("dotenv").config();
 
 const app = express();
 
-// CORS — allow your Vercel frontend
+// Read allowed origins from env or use defaults
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : [
+      'http://localhost:3000',
+      'https://riff-music-streaming-app.vercel.app',
+      'https://music-player-mern-theta.vercel.app',
+    ];
+
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://riff-music-streaming-app.vercel.app',
-    'https://music-player-mern-theta.vercel.app',,
-  ],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    console.log('CORS blocked origin:', origin);
+    return callback(new Error('Not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id'],
   credentials: true,
 }));
+
+// Handle preflight requests for ALL routes
+app.options('*', cors());
 
 app.use(express.json());
 
