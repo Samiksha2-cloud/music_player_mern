@@ -10,6 +10,7 @@ app.use(cors({
   origin: [
     'http://localhost:3000',
     'https://riff-music-streaming-app.vercel.app',
+    'https://music-player-mern-theta.vercel.app',,
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
