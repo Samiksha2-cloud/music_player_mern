@@ -5,7 +5,6 @@ require("dotenv").config();
 
 const app = express();
 
-// Read allowed origins from env or use defaults
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
   : [
@@ -14,23 +13,20 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
       'https://music-player-mern-theta.vercel.app',
     ];
 
-app.use(cors({
+const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, curl)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+    if (allowedOrigins.includes(origin)) return callback(null, true);
     console.log('CORS blocked origin:', origin);
     return callback(new Error('Not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id'],
   credentials: true,
-}));
+};
 
-// Handle preflight requests for ALL routes
-app.options('*', cors());
+app.use(cors(corsOptions));
+app.options('(.*)', cors(corsOptions)); // Fix for newer Express/path-to-regexp
 
 app.use(express.json());
 
@@ -39,7 +35,7 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/test", (req, res) => {
-  res.json({ message: "Backend connection works.", time: new Date().toISOString() });
+  res.json({ message: "Backend works.", time: new Date().toISOString() });
 });
 
 const authRoutes = require("./routes/auth");
