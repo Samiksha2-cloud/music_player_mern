@@ -7,7 +7,6 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import FavsPanel from './FavsPanel';
-
 import PlaylistModal from './PlaylistModal';
 import orbVideo from '../assets/orb_design.mp4';
 
@@ -95,7 +94,6 @@ export default function Home() {
     dispatch({ type: actionType.SET_IS_PLAYING, isPlaying: true });
   };
 
-  // Toggle heart — directly saves to localStorage favs
   const toggleFav = (e, song) => {
     e.stopPropagation();
     const id = song._id || song.id;
@@ -112,10 +110,7 @@ export default function Home() {
 
   const handleDownload = (e, song) => {
     e.stopPropagation();
-    if (!isPremium) {
-      navigate('/premium');
-      return;
-    }
+    if (!isPremium) { navigate('/premium'); return; }
     const a = document.createElement('a');
     a.href = song.audioURL;
     a.download = `${song.title} - ${song.artist}.mp3`;
@@ -136,49 +131,49 @@ export default function Home() {
     );
   }
 
-  <FavsPanel
-  isOpen={showLibrary}
-  onClose={() => setShowLibrary(false)}
-  defaultTab={libraryTab}
-  />
-
   // Group songs into albums by extracting name from imageURL filename
-  // Group songs into albums by extracting name from imageURL filename
-        const albumMap = {};
-        allSongs.forEach((song) => {
-          if (!song.imageURL) return;
-          // Extract filename from URL e.g. "KGF_cover.jpg" → "KGF"
-          const urlParts = song.imageURL.split('/');
-          const filename = urlParts[urlParts.length - 1];
-          // Remove extension and clean up
-          const rawName = filename.replace(/\.[^.]+$/, ''); // remove .jpg/.png etc
-          // Extract meaningful name — take part before first underscore or dash or number
-          const albumName = rawName
-            .replace(/[_-]/g, ' ')
-            .replace(/\d+$/, '')
-            .trim()
-            .split(' ')
-            .slice(0, 3)
-            .join(' ')
-            .trim();
-          if (!albumName || albumName.length < 2) return;
-          if (!albumMap[albumName]) albumMap[albumName] = [];
-          // Only add to album if more than one song shares the same album name
-          albumMap[albumName].push(song);
-        });
-        // Only show albums with 2+ songs
-        const albums = Object.entries(albumMap).filter(([, songs]) => songs.length >= 2);
+  const albumMap = {};
+  allSongs.forEach((song) => {
+    if (!song.imageURL) return;
+    const urlParts = song.imageURL.split('/');
+    const filename = urlParts[urlParts.length - 1];
+    const rawName = filename.replace(/\.[^.]+$/, '');
+    const albumName = rawName
+      .replace(/[_-]/g, ' ')
+      .replace(/\d+$/, '')
+      .trim()
+      .split(' ')
+      .slice(0, 3)
+      .join(' ')
+      .trim();
+    if (!albumName || albumName.length < 2) return;
+    if (!albumMap[albumName]) albumMap[albumName] = [];
+    albumMap[albumName].push(song);
+  });
+  const albums = Object.entries(albumMap).filter(([, songs]) => songs.length >= 2);
 
   return (
     <div className="min-h-screen bg-black text-white relative">
       <Header />
 
-      {/* Playlist modal */}
+      {showLibrary && (
+        <FavsPanel
+          isOpen={showLibrary}
+          onClose={() => setShowLibrary(false)}
+          defaultTab={libraryTab}
+        />
+      )}
+
       {playlistModalSong && (
         <PlaylistModal song={playlistModalSong} onClose={() => setPlaylistModalSong(null)} />
       )}
 
-      <div className="pt-24 md:pt-28 px-6 md:px-12 pb-32 relative z-10">
+      {/*
+        pt-44 = 176px top padding
+        header is ~72px, player bar is ~64px → total ~136px
+        pt-44 gives comfortable breathing room below both bars
+      */}
+      <div className="pt-44 px-6 md:px-12 pb-16 relative z-10">
 
         {/* Orb strip */}
         <motion.div
@@ -275,7 +270,7 @@ export default function Home() {
         )}
 
         {/* NEW SONGS */}
-        <section ref={newRef} className="mb-14 scroll-mt-28">
+        <section ref={newRef} className="mb-14 scroll-mt-48">
           <SectionTitle title="New Releases" />
           {newSongs.length === 0
             ? <EmptyState text="No new releases yet." />
@@ -284,8 +279,22 @@ export default function Home() {
         </section>
 
         {/* MOOD */}
-        <section ref={moodRef} className="mb-14 scroll-mt-28">
-          <SectionTitle title="Mood Playlists" />
+        <section ref={moodRef} className="mb-14 scroll-mt-48">
+          <div className="flex items-center gap-4 mb-5">
+            <div className="flex items-center gap-2 flex-1">
+              <h2 className="text-xl font-bold text-white">Mood Playlists</h2>
+              <div className="flex-1 h-px bg-gradient-to-r from-cyan-900/40 to-transparent ml-3" />
+            </div>
+            {/* AI Moodcast shortcut */}
+            <button
+              onClick={() => navigate('/moodcast')}
+              style={{ padding: '7px 16px', borderRadius: '99px', border: '1px solid #06b6d433', background: '#06b6d410', color: '#06b6d4', fontSize: '12px', fontWeight: '600', cursor: 'pointer', flexShrink: 0 }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#06b6d420'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#06b6d410'}
+            >
+              ✨ AI Moodcast
+            </button>
+          </div>
           <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
             {MOODS.map((mood) => {
               const count = moodSongs?.[mood]?.length || 0;
@@ -297,7 +306,6 @@ export default function Home() {
                   onClick={() => navigate(`/mood/${mood}`)}
                   className={`flex-shrink-0 w-40 rounded-2xl overflow-hidden cursor-pointer border border-indigo-800/30 hover:border-cyan-700/40 transition-all duration-200 bg-gradient-to-br ${MOOD_GRADIENTS[mood]}`}
                 >
-                  {/* Cover image from first song */}
                   <div className="w-full aspect-square relative">
                     {coverSong?.imageURL
                       ? <img src={coverSong.imageURL} alt={mood} className="w-full h-full object-cover opacity-60" />
@@ -315,8 +323,8 @@ export default function Home() {
           </div>
         </section>
 
-        {/* LANGUAGE — horizontal */}
-        <section ref={languageRef} className="mb-14 scroll-mt-28">
+        {/* LANGUAGE */}
+        <section ref={languageRef} className="mb-14 scroll-mt-48">
           <SectionTitle title="Browse by Language" />
           <div className="flex gap-3 mb-5">
             {['', 'Hindi', 'English'].map((lang) => (
@@ -340,7 +348,7 @@ export default function Home() {
         </section>
 
         {/* ARTIST */}
-        <section ref={artistRef} className="mb-14 scroll-mt-28">
+        <section ref={artistRef} className="mb-14 scroll-mt-48">
           <SectionTitle title="Artists" />
           {Object.keys(artistMap).length === 0 ? (
             <EmptyState text="No artist songs yet." />
@@ -368,50 +376,49 @@ export default function Home() {
         </section>
 
         {/* ALBUMS */}
-          <section ref={albumRef} className="mb-14 scroll-mt-28">
-            <SectionTitle title="Albums" />
-            {albums.length === 0 ? (
-              <EmptyState text="No albums yet. Albums appear when multiple songs share the same cover image name." />
-            ) : (
-              <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
-                {albums.map(([albumName, albumSongs]) => (
-                  <motion.div
-                    key={albumName}
-                    whileHover={{ scale: 1.04 }}
-                    onClick={() => playSong(albumSongs[0])}
-                    className="flex-shrink-0 w-44 bg-zinc-900/80 rounded-2xl overflow-hidden border border-zinc-800 hover:border-cyan-500/40 transition-all duration-200 cursor-pointer"
-                  >
-                    {/* 2x2 mosaic or single cover */}
-                    <div className="w-full aspect-square">
-                      {albumSongs.length >= 4 ? (
-                        <div className="w-full h-full grid grid-cols-2 gap-0.5">
-                          {albumSongs.slice(0, 4).map((s, i) => (
-                            <div key={i} className="overflow-hidden">
-                              {s.imageURL
-                                ? <img src={s.imageURL} alt="" className="w-full h-full object-cover" />
-                                : <div className="w-full h-full bg-indigo-900/50" />
-                              }
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        albumSongs[0]?.imageURL
-                          ? <img src={albumSongs[0].imageURL} alt={albumName} className="w-full h-full object-cover" />
-                          : <div className="w-full h-full bg-gradient-to-br from-indigo-900 to-cyan-900/30 flex items-center justify-center text-4xl opacity-20">♪</div>
-                      )}
-                    </div>
-                    <div className="p-3">
-                      <p className="font-semibold text-sm truncate text-white capitalize">{albumName}</p>
-                      <p className="text-xs text-gray-400">{albumSongs.length} songs</p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </section>
+        <section ref={albumRef} className="mb-14 scroll-mt-48">
+          <SectionTitle title="Albums" />
+          {albums.length === 0 ? (
+            <EmptyState text="No albums yet. Albums appear when multiple songs share the same cover image name." />
+          ) : (
+            <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
+              {albums.map(([albumName, albumSongs]) => (
+                <motion.div
+                  key={albumName}
+                  whileHover={{ scale: 1.04 }}
+                  onClick={() => playSong(albumSongs[0])}
+                  className="flex-shrink-0 w-44 bg-zinc-900/80 rounded-2xl overflow-hidden border border-zinc-800 hover:border-cyan-500/40 transition-all duration-200 cursor-pointer"
+                >
+                  <div className="w-full aspect-square">
+                    {albumSongs.length >= 4 ? (
+                      <div className="w-full h-full grid grid-cols-2 gap-0.5">
+                        {albumSongs.slice(0, 4).map((s, i) => (
+                          <div key={i} className="overflow-hidden">
+                            {s.imageURL
+                              ? <img src={s.imageURL} alt="" className="w-full h-full object-cover" />
+                              : <div className="w-full h-full bg-indigo-900/50" />
+                            }
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      albumSongs[0]?.imageURL
+                        ? <img src={albumSongs[0].imageURL} alt={albumName} className="w-full h-full object-cover" />
+                        : <div className="w-full h-full bg-gradient-to-br from-indigo-900 to-cyan-900/30 flex items-center justify-center text-4xl opacity-20">♪</div>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <p className="font-semibold text-sm truncate text-white capitalize">{albumName}</p>
+                    <p className="text-xs text-gray-400">{albumSongs.length} songs</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </section>
 
         {/* MY PLAYLISTS */}
-        <section ref={playlistRef} className="mb-14 scroll-mt-28">
+        <section ref={playlistRef} className="mb-14 scroll-mt-48">
           <SectionTitle title="My Playlists" />
           {!playlists || playlists.length === 0 ? (
             <EmptyState text="No playlists yet. Click the playlist icon on any song." />
@@ -444,8 +451,8 @@ export default function Home() {
           )}
         </section>
 
-        {/* ALL SONGS — horizontal */}
-        <section ref={songsRef} className="scroll-mt-28">
+        {/* ALL SONGS */}
+        <section ref={songsRef} className="scroll-mt-48">
           <SectionTitle title="All Songs" />
           {allSongs.length === 0
             ? <EmptyState text="No songs yet." />
@@ -453,8 +460,6 @@ export default function Home() {
           }
         </section>
       </div>
-
-      
     </div>
   );
 }
@@ -480,75 +485,43 @@ function SongCard({ song, isFav, onPlay, onFav, onDownload, onPlaylist }) {
       whileHover={{ scale: 1.04 }}
       className="flex-shrink-0 w-44 bg-zinc-900/80 rounded-2xl overflow-hidden cursor-pointer border border-zinc-800 hover:border-cyan-500/40 transition-all duration-200 group"
     >
-      {/* Cover */}
       <div className="w-full aspect-square bg-zinc-800 flex items-center justify-center overflow-hidden relative" onClick={onPlay}>
         {song.imageURL
           ? <img src={song.imageURL} alt={song.title} className="w-full h-full object-cover" />
           : <span className="text-5xl opacity-20">♪</span>
         }
-        {/* Play overlay */}
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
           <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center">
             <svg width="16" height="16" fill="black" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           </div>
         </div>
       </div>
-
-      {/* Info */}
       <div className="p-3" onClick={onPlay}>
         <p className="font-semibold text-white text-sm truncate">{song.title}</p>
         <p className="text-xs text-zinc-400 truncate mt-0.5">{song.artist}</p>
       </div>
-
-      {/* Action buttons */}
       <div className="flex items-center justify-between px-3 pb-3 gap-1">
-        {/* Heart — adds directly to favs */}
-        <button
-          onClick={onFav}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: isFav ? '#06b6d4' : '#444', fontSize: '16px',
-            padding: '4px', transition: 'all 0.15s ease',
-          }}
+        <button onClick={onFav}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: isFav ? '#06b6d4' : '#444', fontSize: '16px', padding: '4px', transition: 'all 0.15s ease' }}
           onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2)'}
           onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
           title="Add to Favourites"
-        >
-          {isFav ? '♥' : '♡'}
-        </button>
-
-        {/* Add to playlist */}
-        <button
-          onClick={onPlaylist}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: '#444', fontSize: '14px', padding: '4px',
-            transition: 'all 0.15s ease',
-          }}
+        >{isFav ? '♥' : '♡'}</button>
+        <button onClick={onPlaylist}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#444', fontSize: '14px', padding: '4px', transition: 'all 0.15s ease' }}
           onMouseEnter={(e) => e.currentTarget.style.color = '#06b6d4'}
           onMouseLeave={(e) => e.currentTarget.style.color = '#444'}
           title="Add to Playlist"
         >
-          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M12 5v14M5 12h14"/>
-          </svg>
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
         </button>
-
-        {/* Download */}
-        <button
-          onClick={onDownload}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: '#444', fontSize: '14px', padding: '4px',
-            transition: 'all 0.15s ease',
-          }}
+        <button onClick={onDownload}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#444', fontSize: '14px', padding: '4px', transition: 'all 0.15s ease' }}
           onMouseEnter={(e) => e.currentTarget.style.color = '#06b6d4'}
           onMouseLeave={(e) => e.currentTarget.style.color = '#444'}
           title="Download (Premium)"
         >
-          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M12 3v13M5 16l7 7 7-7M3 21h18"/>
-          </svg>
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 3v13M5 16l7 7 7-7M3 21h18"/></svg>
         </button>
       </div>
     </motion.div>

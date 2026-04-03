@@ -8,6 +8,8 @@ import OrbPage from './components/OrbPage';
 import AdminDashboard from './components/AdminDashboard';
 import AdminUpload from './components/AdminUpload';
 import MoodPlaylistPage from './components/MoodPlaylistPage';
+import MoodcastPage from './components/MoodcastPage';
+import ChallengesPage from './components/ChallengesPage';
 import ArtistPage from './components/ArtistPage';
 import Premium from './components/Premium';
 import MusicPlayer from './components/MusicPlayer';
@@ -28,7 +30,7 @@ function AppContent() {
 
   return (
     <>
-      {/* MusicPlayer is OUTSIDE Routes — never unmounts, audio never restarts */}
+      {/* MusicPlayer sits just below the header (top: 72px) — never unmounts */}
       {user && <MusicPlayer />}
 
       <AnimatePresence mode="wait">
@@ -40,6 +42,8 @@ function AppContent() {
           <Route path="/admin" element={user ? <AdminDashboard /> : <Login />} />
           <Route path="/admin/upload" element={<AdminUpload />} />
           <Route path="/mood/:mood" element={user ? <MoodPlaylistPage /> : <Login />} />
+          <Route path="/moodcast" element={user ? <MoodcastPage /> : <Login />} />
+          <Route path="/challenges" element={user ? <ChallengesPage /> : <Login />} />
           <Route path="/artist/:artistName" element={user ? <ArtistPage /> : <Login />} />
           <Route path="/premium" element={user ? <Premium /> : <Login />} />
           <Route path="*" element={<Navigate to="/" replace />} />
