@@ -1,61 +1,47 @@
-// server/app.js
-
 const express = require("express");
 const cors = require("cors");
-const { default: mongoose } = require("mongoose");
-require("dotenv").config(); // Load .env variables
-console.log('Supabase key loaded:', process.env.REACT_APP_SUPABASE_KEY ? 'YES (length ' + process.env.REACT_APP_SUPABASE_KEY.length + ')' : 'MISSING');
+const mongoose = require("mongoose");
+require("dotenv").config();
 
 const app = express();
 
-// Middleware
-app.use(cors({ 
-  origin: 'https://music-player-mern-theta.vercel.app', // add after deploying frontend
-  method: 'GET,POST,PUT,DELETE',
-  credentials: true
- }));          
-app.use(express.json());                  // Parse JSON request bodies
+// CORS — allow your Vercel frontend
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://riff-music-streaming-app.vercel.app',
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true,
+}));
 
-// Simple root route for testing (open localhost:4000 in browser)
+app.use(express.json());
+
 app.get("/", (req, res) => {
-  res.json({
-    message: "Riff Music App Backend is running!",
-    status: "ok",
-    port: process.env.PORT || 4000,
-  });
+  res.json({ message: "Riff Music App Backend is running!", status: "ok" });
 });
 
-// Test endpoint for frontend-backend connection
 app.get("/api/test", (req, res) => {
-  res.json({
-    message: "Hello from backend! Frontend-backend connection works.",
-    time: new Date().toISOString(),
-  });
+  res.json({ message: "Backend connection works.", time: new Date().toISOString() });
 });
 
-// Import routes
 const authRoutes = require("./routes/auth");
 const songRoutes = require("./routes/songs");
 const playlistRoutes = require("./routes/playlists");
 
-// Use routes
 app.use("/api/users", authRoutes);
 app.use("/api/songs", songRoutes);
 app.use("/api/playlists", playlistRoutes);
 
-// Connect to MongoDB Atlas
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Atlas connected successfully!"))
+  .then(() => console.log("MongoDB Atlas connected!"))
   .catch((err) => {
     console.error("MongoDB connection error:", err.message);
-    process.exit(1); // Stop server if DB fails
+    process.exit(1);
   });
 
-// Start server
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 module.exports = app;

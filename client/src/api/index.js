@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:4000/';
+const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+console.log("Backend URL is:", baseURL); // fixed — was using undefined API_URL
 
 export const validateUser = async (token) => {
   try {
@@ -77,8 +78,10 @@ export const createPlaylist = async (name, userId, isPremium = false) => {
     );
     return res.data;
   } catch (error) {
-    // Return the error response so we can show limit message
-    return { error: error?.response?.data?.message, limitReached: error?.response?.data?.limitReached };
+    return {
+      error: error?.response?.data?.message,
+      limitReached: error?.response?.data?.limitReached,
+    };
   }
 };
 
@@ -87,13 +90,14 @@ export const addSongToPlaylist = async (playlistId, songId) => {
   const isPremium = localStorage.getItem('riff_premium') === 'true';
   try {
     const res = await axios.post(`${baseURL}/api/playlists/${playlistId}/songs`, {
-      songId,
-      points,
-      isPremium,
+      songId, points, isPremium,
     });
     return res.data;
   } catch (error) {
-    return { error: error?.response?.data?.message, limitReached: error?.response?.data?.limitReached };
+    return {
+      error: error?.response?.data?.message,
+      limitReached: error?.response?.data?.limitReached,
+    };
   }
 };
 
