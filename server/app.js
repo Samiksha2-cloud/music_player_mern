@@ -5,33 +5,30 @@ require("dotenv").config();
 
 const app = express();
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : [
-      'http://localhost:3000',
-      'https://riff-music-streaming-app.vercel.app',
-      'https://music-player-mern-theta.vercel.app',
-    ];
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://riff-music-streaming-app.vercel.app',
+  'https://music-player-mern-theta.vercel.app',
+];
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    console.log('CORS blocked origin:', origin);
-    return callback(new Error('Not allowed by CORS'));
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id'],
-  credentials: true,
-};
-
-app.use(cors(corsOptions));
-app.options('(.*)', cors(corsOptions)); // Fix for newer Express/path-to-regexp
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-user-id');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.json({ message: "Riff Music App Backend is running!", status: "ok" });
+  res.json({ message: "Riff backend running!", status: "ok" });
 });
 
 app.get("/api/test", (req, res) => {
@@ -48,9 +45,9 @@ app.use("/api/playlists", playlistRoutes);
 
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Atlas connected!"))
+  .then(() => console.log("MongoDB connected!"))
   .catch((err) => {
-    console.error("MongoDB connection error:", err.message);
+    console.error("MongoDB error:", err.message);
     process.exit(1);
   });
 
